@@ -21,13 +21,15 @@ export const BRANDS = BRAND_OPTIONS.map(brand => brand.name);
 
 export const REDIRECT_URL = "https://jackie-jeans.vercel.app/";
 
-export const MANUAL_STEP_GROUPS = [
+export const STEP_GROUPS = [
   ["height", "weight"],
   ["waist", "hip"],
   ["waistFit", "rise", "thighFit"],
   ["brands", "brandSizes"],
   ["frustration"],
 ];
+
+export const QUIZ_STEPS = STEP_GROUPS.flat();
 
 export const JEAN_SIZES = [
   "23", "24", "25", "26", "27", "28", "29", "30",

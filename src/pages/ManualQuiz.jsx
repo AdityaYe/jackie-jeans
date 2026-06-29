@@ -3,7 +3,7 @@ import ProgressBar from '../components/ProgressBar';
 import OptionChip from '../components/OptionChip';
 import CompletionScreen from '../components/CompletionScreen';
 import BrandCard from '../components/BrandCard';
-import { BRAND_OPTIONS, JEAN_SIZES, MANUAL_STEP_GROUPS, QUESTION_BY_KEY } from '../data/quizData';
+import { BRAND_OPTIONS, JEAN_SIZES, STEP_GROUPS, QUESTION_BY_KEY } from '../data/quizData';
 import { convertWeight } from '../utils/fitProfile';
 
 export default function ManualQuiz({ onBack }) {
@@ -13,11 +13,11 @@ export default function ManualQuiz({ onBack }) {
   const [animating, setAnimating] = useState(false);
   const [done, setDone] = useState(false);
 
-  const stepKeys = MANUAL_STEP_GROUPS[currentStep];
+  const stepKeys = STEP_GROUPS[currentStep];
   const stepQuestions = stepKeys.map(key => QUESTION_BY_KEY[key]);
 
   const transitionToStep = (nextStep) => {
-    if (nextStep >= MANUAL_STEP_GROUPS.length) {
+    if (nextStep >= STEP_GROUPS.length) {
       setDone(true);
       return;
     }
@@ -105,7 +105,7 @@ export default function ManualQuiz({ onBack }) {
           </svg>
         </button>
         <div style={{ flex: 1 }}>
-          <ProgressBar current={currentStep + 1} total={MANUAL_STEP_GROUPS.length} />
+          <ProgressBar current={currentStep + 1} total={STEP_GROUPS.length} />
         </div>
       </div>
 
@@ -244,7 +244,7 @@ export default function ManualQuiz({ onBack }) {
           onClick={handleNext}
           disabled={!canProceed()}
         >
-          {currentStep === MANUAL_STEP_GROUPS.length - 1 ? 'See my fit' : 'Continue'}
+          {currentStep === STEP_GROUPS.length - 1 ? 'See my fit' : 'Continue'}
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M5 12h14M12 5l7 7-7 7" />
           </svg>

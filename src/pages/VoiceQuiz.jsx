@@ -1,13 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import VoiceOrb from '../components/VoiceOrb';
 import CompletionScreen from '../components/CompletionScreen';
-import { QUIZ_QUESTIONS, QUESTION_BY_KEY, BRANDS, JEAN_SIZES } from '../data/quizData';
+import { QUIZ_QUESTIONS, QUIZ_STEPS, QUESTION_BY_KEY, BRANDS, JEAN_SIZES } from '../data/quizData';
 import { formatAnswerValue } from '../utils/fitProfile';
 
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 const hasSpeechRecognition = !!SpeechRecognition;
 const hasSpeechSynthesis = !!window.speechSynthesis;
-const STEPS = QUIZ_QUESTIONS.map(q => q.key);
+const STEPS = QUIZ_STEPS;
 
 const NUMBER_WORDS = {
   zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5,
