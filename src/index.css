@@ -88,23 +88,6 @@ a:hover {
 }
 
 /* Typography */
-.heading-xl {
-  font-family: var(--font-sans);
-  font-size: clamp(2.35rem, 9vw, 4.9rem);
-  font-weight: 600;
-  line-height: 1.08;
-  letter-spacing: 0;
-  color: var(--fg);
-}
-
-.heading-lg {
-  font-family: var(--font-sans);
-  font-size: clamp(1.5rem, 6vw, 2.2rem);
-  font-weight: 600;
-  line-height: 1.2;
-  letter-spacing: 0;
-}
-
 .heading-md {
   font-family: var(--font-sans);
   font-size: clamp(1.35rem, 5vw, 1.9rem);
@@ -174,18 +157,6 @@ a:hover {
   background: var(--surface);
 }
 
-.btn-accent {
-  background: var(--cta-primary);
-  color: var(--fg);
-  border: 1px solid transparent;
-}
-
-.btn-accent:not(:disabled):hover {
-  background: transparent;
-  border-color: var(--cta-primary);
-  color: var(--cta-primary);
-}
-
 .btn-icon {
   width: 44px;
   height: 44px;
@@ -243,12 +214,6 @@ a:hover {
   border-color: var(--accent-warm);
   border-style: dashed;
   box-shadow: none;
-}
-
-.chip.brand-chip {
-  min-height: 38px;
-  padding: 8px 18px;
-  font-size: 0.8125rem;
 }
 
 .brand-card-grid {
@@ -545,26 +510,11 @@ a:hover {
   transition: width 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
-/* Card */
-.card {
-  background: var(--surface);
-  border-radius: var(--radius-lg);
-  padding: 32px 28px;
-  border: 1px solid var(--border);
-}
-
 /* Layout */
 .page {
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
-}
-
-.container {
-  width: 100%;
-  max-width: 480px;
-  margin: 0 auto;
-  padding: 0 20px;
 }
 
 /* Landing */
@@ -921,24 +871,6 @@ a:hover {
   color: var(--fg);
 }
 
-.skip-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--fg-muted);
-  font-size: 0.875rem;
-  font-weight: 500;
-  cursor: pointer;
-  background: none;
-  border: none;
-  text-decoration: none;
-  transition: var(--transition);
-}
-
-.skip-link:hover {
-  color: var(--fg);
-}
-
 /* Hint text */
 .hint-text {
   font-size: 0.8rem;
@@ -988,17 +920,6 @@ a:hover {
   }
 }
 
-@keyframes slideOut {
-  from {
-    opacity: 1;
-    transform: translateX(0);
-  }
-  to {
-    opacity: 0;
-    transform: translateX(-30px);
-  }
-}
-
 @keyframes breathe {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.08); }
@@ -1015,10 +936,6 @@ a:hover {
 
 .animate-fade-in {
   animation: fadeIn 0.4s ease both;
-}
-
-.animate-slide-in {
-  animation: slideIn 0.35s ease both;
 }
 
 .voice-page {

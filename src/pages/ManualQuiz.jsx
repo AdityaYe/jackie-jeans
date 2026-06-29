@@ -105,7 +105,7 @@ export default function ManualQuiz({ onBack }) {
           </svg>
         </button>
         <div style={{ flex: 1 }}>
-          <ProgressBar current={currentStep + 1} total={STEP_GROUPS.length} />
+          <ProgressBar current={currentStep + 1} total={MANUAL_STEP_GROUPS.length} />
         </div>
       </div>
 

@@ -1,5 +1,3 @@
-// Jackie Jeans Fit Quiz — Question Data
-
 export const BRAND_OPTIONS = [
   { name: "Levi's", logo: "/brand-logos/levis-logo.svg" },
   { name: "Madewell", logo: "/brand-logos/madewell-logo.svg" },

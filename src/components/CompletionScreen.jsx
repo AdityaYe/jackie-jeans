@@ -1,24 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
-
-const REDIRECT_URL = 'https://jackie-jeans.vercel.app/';
+import { REDIRECT_URL } from '../data/quizData';
+import { buildFitProfileParams, buildSummaryParts } from '../utils/fitProfile';
 
 export default function CompletionScreen({ answers }) {
   const [countdown, setCountdown] = useState(5);
+  const summaryParts = buildSummaryParts(answers);
 
   const handleRedirect = useCallback(() => {
-    // Build a query string from answers to carry the fit profile
-    const params = new URLSearchParams();
-    if (answers.height)    params.set('height', answers.height);
-    if (answers.weight)    params.set('weight', answers.weight);
-    if (answers.weightUnit) params.set('weight_unit', answers.weightUnit);
-    if (answers.waist)     params.set('waist', answers.waist);
-    if (answers.hip)       params.set('hip', answers.hip);
-    if (answers.waistFit)  params.set('waist_fit', answers.waistFit);
-    if (answers.rise)      params.set('rise', answers.rise);
-    if (answers.thighFit)  params.set('thigh_fit', answers.thighFit);
-    if (answers.frustration) params.set('frustration', answers.frustration);
-    if (answers.brands?.length) params.set('brands', answers.brands.join(','));
-
+    const params = buildFitProfileParams(answers);
     const url = `${REDIRECT_URL}?${params.toString()}`;
     window.location.href = url;
   }, [answers]);
@@ -37,14 +26,6 @@ export default function CompletionScreen({ answers }) {
     return () => clearInterval(timer);
   }, [handleRedirect]);
 
-  // Build a simple summary sentence
-  const summaryParts = [];
-  if (answers.height) summaryParts.push(answers.height);
-  if (answers.waist) summaryParts.push(`${answers.waist} waist`);
-  if (answers.hip) summaryParts.push(`${answers.hip} hip`);
-  if (answers.rise) summaryParts.push(answers.rise.toLowerCase());
-  if (answers.thighFit) summaryParts.push(`${answers.thighFit.toLowerCase()} through the thigh`);
-
   return (
     <div
       className="page"
@@ -58,7 +39,6 @@ export default function CompletionScreen({ answers }) {
       }}
     >
       <div className="animate-fade-in-up" style={{ maxWidth: 380 }}>
-        {/* Check mark */}
         <div
           style={{
             width: 80,
@@ -72,7 +52,7 @@ export default function CompletionScreen({ answers }) {
             margin: '0 auto 28px',
           }}
         >
-          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <polyline points="20 6 9 17 4 12" />
           </svg>
         </div>
@@ -104,7 +84,7 @@ export default function CompletionScreen({ answers }) {
               fontStyle: 'italic',
             }}
           >
-            {summaryParts.join(' · ')}
+            {summaryParts.join(' / ')}
           </p>
         )}
 
@@ -123,15 +103,13 @@ export default function CompletionScreen({ answers }) {
           }}
         >
           Explore Jackie Jeans
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M5 12h14M12 5l7 7-7 7" />
           </svg>
         </button>
 
-        {/* Divider */}
         <div style={{ margin: '32px 0', borderTop: '1px solid var(--border)' }} />
 
-        {/* Fit summary cards */}
         {Object.keys(answers).length > 0 && (
           <div style={{ textAlign: 'left' }}>
             <p className="label-sm" style={{ color: 'var(--fg-muted)', marginBottom: 16 }}>
