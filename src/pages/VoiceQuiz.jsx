@@ -31,13 +31,20 @@ const HEIGHT_WORD_MAP = {
 
 const SKIP_RE = /skip|pass|rather not|prefer not|no thanks|don.?t want|none|not share/i;
 
-function speak(text, onEnd) {
+// ---------------------------------------------------------------------------
+// speak() — cancels any in-progress speech before starting the new utterance.
+// The onEnd callback is wrapped so it becomes a no-op once cancel() is called,
+// preventing stale callbacks from chaining into more speech / listening.
+// ---------------------------------------------------------------------------
+function speak(text, onEnd, cancelTokenRef) {
   if (!hasSpeechSynthesis) {
     onEnd?.();
     return;
   }
 
+  // Cancel whatever is currently playing before queuing the new utterance.
   window.speechSynthesis.cancel();
+
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.rate = 1;
   utterance.pitch = 1.04;
@@ -49,8 +56,15 @@ function speak(text, onEnd) {
   ) || voices.find(v => v.lang === 'en-US') || voices[0];
   if (preferred) utterance.voice = preferred;
 
-  utterance.onend = () => onEnd?.();
-  utterance.onerror = () => onEnd?.();
+  // Guard: if the cancelToken has been flipped (component unmounted / nav away),
+  // do not invoke the callback at all so no chained voice activity starts.
+  const safeOnEnd = () => {
+    if (cancelTokenRef?.current) return;
+    onEnd?.();
+  };
+
+  utterance.onend = safeOnEnd;
+  utterance.onerror = safeOnEnd;
   window.speechSynthesis.speak(utterance);
 }
 
@@ -227,6 +241,13 @@ export default function VoiceQuiz({ onBack }) {
   const startListeningRef = useRef(null);
   const listenTimerRef = useRef(null);
 
+  // ---------------------------------------------------------------------------
+  // cancelledRef — flipped to true by cleanupVoice(). Every async callback
+  // (speak's onEnd, recognizer.onend, timer callbacks) checks this flag before
+  // doing anything, so no voice activity can start after the page is left.
+  // ---------------------------------------------------------------------------
+  const cancelledRef = useRef(false);
+
   answersRef.current = answers;
   stepKeyRef.current = stepKey;
 
@@ -249,14 +270,42 @@ export default function VoiceQuiz({ onBack }) {
     rise:       'Recommended: Mid rise',
     fitIssue:   'Recommended: Waist gap at the back',
     brands:     "Recommended: Levi's, Wrangler",
-    brandSizes: activeBrand ? `Recommended: 32 or M` : 'Recommended: 32 or M',
+    brandSizes: 'Recommended: 32 or M',
   };
 
-  const displayQuestion = useMemo(() => {
-    if (stepKey === 'brandSizes' && activeBrand) return `What size did you buy in ${activeBrand}?`;
-    return currentQuestion?.question || '';
-  }, [activeBrand, currentQuestion, stepKey]);
+  // ---------------------------------------------------------------------------
+  // cleanupVoice — THE single source of truth for stopping all voice activity.
+  // Call this before every navigation and it is also wired to unmount + beforeunload.
+  // ---------------------------------------------------------------------------
+  const cleanupVoice = useCallback(() => {
+    // 1. Flip the cancel flag so every pending async callback becomes a no-op.
+    cancelledRef.current = true;
 
+    // 2. Clear any pending listen timer so it never fires.
+    if (listenTimerRef.current) {
+      window.clearTimeout(listenTimerRef.current);
+      listenTimerRef.current = null;
+    }
+
+    // 3. Tear down the active SpeechRecognition instance completely.
+    const recognizer = recognizerRef.current;
+    if (recognizer) {
+      recognizer.onresult = null;
+      recognizer.onend = null;
+      recognizer.onerror = null;
+      try { recognizer.abort(); } catch { /* already inactive in some browsers */ }
+      try { recognizer.stop(); } catch { /* already inactive in some browsers */ }
+      recognizerRef.current = null;
+    }
+
+    // 4. Stop and flush the speech synthesis queue.
+    if (hasSpeechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+  }, []);
+
+  // stopRecognition is kept for internal mid-session use (e.g. before re-asking
+  // a question). It does NOT flip cancelledRef so the session can continue.
   const stopRecognition = useCallback(() => {
     if (listenTimerRef.current) {
       window.clearTimeout(listenTimerRef.current);
@@ -268,15 +317,18 @@ export default function VoiceQuiz({ onBack }) {
     recognizer.onend = null;
     recognizer.onerror = null;
     recognizer.onresult = null;
-    try {
-      recognizer.abort();
-    } catch {
-      // Some browsers throw if recognition is already inactive.
-    }
+    try { recognizer.abort(); } catch { /* already inactive */ }
     recognizerRef.current = null;
   }, []);
 
+  const displayQuestion = useMemo(() => {
+    if (stepKey === 'brandSizes' && activeBrand) return `What size did you buy in ${activeBrand}?`;
+    return currentQuestion?.question || '';
+  }, [activeBrand, currentQuestion, stepKey]);
+
   const scheduleListening = useCallback((delay = 380) => {
+    if (cancelledRef.current) return;
+
     if (speechUnavailable || !hasSpeechRecognition) {
       setOrbState('idle');
       setStatusMsg('Ready for your typed answer');
@@ -288,6 +340,8 @@ export default function VoiceQuiz({ onBack }) {
     setStatusMsg('Ready for your answer');
     listenTimerRef.current = window.setTimeout(() => {
       listenTimerRef.current = null;
+      // Guard again at the moment the timer fires.
+      if (cancelledRef.current) return;
       startListeningRef.current?.();
     }, delay);
   }, [speechUnavailable]);
@@ -377,6 +431,8 @@ export default function VoiceQuiz({ onBack }) {
   }, [brandSizeIndex]);
 
   const askQuestion = useCallback((key = stepKeyRef.current, customPrompt = null) => {
+    if (cancelledRef.current) return;
+
     const q = QUESTION_BY_KEY[key];
     if (!q) return;
 
@@ -393,14 +449,19 @@ export default function VoiceQuiz({ onBack }) {
     setStatusMsg('Speaking...');
     speak(prompt, () => {
       scheduleListening();
-    });
+    }, cancelledRef);
   }, [brandSizeIndex, scheduleListening, stopRecognition]);
 
   const moveAfterSave = useCallback((key, value) => {
+    if (cancelledRef.current) return;
+
     if (editingReturnKey) {
       setEditingReturnKey(null);
       setStepKey(editingReturnKey);
-      setTimeout(() => askQuestion(editingReturnKey, 'Updated. Let\'s pick up where we left off.'), 250);
+      setTimeout(() => {
+        if (cancelledRef.current) return;
+        askQuestion(editingReturnKey, 'Updated. Let\'s pick up where we left off.');
+      }, 250);
       return;
     }
 
@@ -408,7 +469,10 @@ export default function VoiceQuiz({ onBack }) {
       const nextBrandIndex = brandSizeIndex + 1;
       if (nextBrandIndex < (answersRef.current.brands || []).length) {
         setBrandSizeIndex(nextBrandIndex);
-        setTimeout(() => askQuestion('brandSizes'), 250);
+        setTimeout(() => {
+          if (cancelledRef.current) return;
+          askQuestion('brandSizes');
+        }, 250);
         return;
       }
     }
@@ -421,10 +485,15 @@ export default function VoiceQuiz({ onBack }) {
 
     setStepKey(nextKey);
     if (nextKey === 'brandSizes') setBrandSizeIndex(0);
-    setTimeout(() => askQuestion(nextKey), 250);
+    setTimeout(() => {
+      if (cancelledRef.current) return;
+      askQuestion(nextKey);
+    }, 250);
   }, [askQuestion, brandSizeIndex, editingReturnKey]);
 
   const submitAnswer = useCallback((raw, source = 'typed') => {
+    if (cancelledRef.current) return false;
+
     const cleaned = raw.trim();
     if (!cleaned) {
       setErrorMsg('Add an answer first.');
@@ -457,7 +526,7 @@ export default function VoiceQuiz({ onBack }) {
       setStatusMsg('Speaking...');
       speak(confirm, () => {
         scheduleListening();
-      });
+      }, cancelledRef);
       return true;
     }
 
@@ -465,13 +534,15 @@ export default function VoiceQuiz({ onBack }) {
     setCaption(confirm);
     setOrbState('speaking');
     setStatusMsg('Speaking...');
-    speak(confirm, () => moveAfterSave(key, result.value));
+    speak(confirm, () => moveAfterSave(key, result.value), cancelledRef);
     return true;
   }, [moveAfterSave, saveAnswer, scheduleListening, speechUnavailable, stopRecognition, validateAnswer]);
 
   submitRef.current = submitAnswer;
 
   const startListening = useCallback(() => {
+    if (cancelledRef.current) return;
+
     if (speechUnavailable || !hasSpeechRecognition) {
       setStatusMsg('Voice is unavailable. Type your answer below.');
       return;
@@ -492,6 +563,7 @@ export default function VoiceQuiz({ onBack }) {
     recognizerRef.current = recognizer;
 
     recognizer.onresult = (event) => {
+      if (cancelledRef.current) return;
       let interim = '';
       let final = '';
       for (let i = event.resultIndex; i < event.results.length; i += 1) {
@@ -504,24 +576,30 @@ export default function VoiceQuiz({ onBack }) {
     };
 
     recognizer.onend = () => {
+      // Always clear the ref first.
       recognizerRef.current = null;
+
+      // Do not act on results if the component has been left.
+      if (cancelledRef.current) return;
+
       const final = finalTranscriptRef.current.trim();
       if (final) {
         submitRef.current?.(final, 'voice');
       } else {
         setOrbState('idle');
         setStatusMsg('I did not catch that. Listening again...');
-        if (!speechUnavailable) {
-          listenTimerRef.current = window.setTimeout(() => {
-            listenTimerRef.current = null;
-            startListeningRef.current?.();
-          }, 500);
-        }
+        listenTimerRef.current = window.setTimeout(() => {
+          listenTimerRef.current = null;
+          if (cancelledRef.current) return;
+          startListeningRef.current?.();
+        }, 500);
       }
     };
 
     recognizer.onerror = (event) => {
       recognizerRef.current = null;
+      if (cancelledRef.current) return;
+
       if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
         setSpeechUnavailable(true);
         setErrorMsg('Microphone access is not available. You can type instead.');
@@ -553,13 +631,18 @@ export default function VoiceQuiz({ onBack }) {
   }, [brandSizeIndex, submitAnswer, typedInput]);
 
   const startQuiz = () => {
+    // Reset the cancel flag for a fresh session.
+    cancelledRef.current = false;
     setIsStarted(true);
     const intro = 'Hi, I am your Jackie Jeans fit stylist. I will guide you through a few quick questions so we can understand what feels best on you.';
     setCaption(intro);
     setOrbState('speaking');
     setStatusMsg('Speaking...');
     window.speechSynthesis?.getVoices();
-    setTimeout(() => speak(intro, () => askQuestion(STEPS[0])), 180);
+    setTimeout(() => {
+      if (cancelledRef.current) return;
+      speak(intro, () => askQuestion(STEPS[0]), cancelledRef);
+    }, 180);
   };
 
   const handleEdit = (key) => {
@@ -575,13 +658,25 @@ export default function VoiceQuiz({ onBack }) {
       setBrandSizeIndex(Math.max(firstMissing, 0));
     }
 
-    setTimeout(() => askQuestion(key, `Let's update ${QUESTION_BY_KEY[key].question.toLowerCase()}`), 220);
+    setTimeout(() => {
+      if (cancelledRef.current) return;
+      askQuestion(key, `Let's update ${QUESTION_BY_KEY[key].question.toLowerCase()}`);
+    }, 220);
   };
 
-  useEffect(() => () => {
-    stopRecognition();
-    window.speechSynthesis?.cancel();
-  }, [stopRecognition]);
+  // ---------------------------------------------------------------------------
+  // Lifecycle: stop all voice on unmount and on page refresh / tab close.
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    const handleBeforeUnload = () => cleanupVoice();
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      // Component unmount — stop everything immediately.
+      cleanupVoice();
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [cleanupVoice]);
 
   const progressPct = Math.round(((stepIndex + 1) / QUIZ_QUESTIONS.length) * 100);
   const currentAnswer = stepKey === 'brandSizes'
@@ -596,8 +691,8 @@ export default function VoiceQuiz({ onBack }) {
         <button
           className="btn btn-icon"
           onClick={() => {
-            stopRecognition();
-            window.speechSynthesis?.cancel();
+            // Clean up before navigating away.
+            cleanupVoice();
             onBack();
           }}
           aria-label="Go back"
