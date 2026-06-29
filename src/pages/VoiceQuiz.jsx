@@ -240,6 +240,18 @@ export default function VoiceQuiz({ onBack }) {
     return Object.prototype.hasOwnProperty.call(answers, q.key);
   });
 
+  const PLACEHOLDERS = {
+    height:     "Recommended: 5'6\"",
+    weight:     'Recommended: 140 lbs',
+    waist:      'Recommended: 30"',
+    hip:        'Recommended: 38"',
+    fit:        'Recommended: Relaxed',
+    rise:       'Recommended: Mid rise',
+    fitIssue:   'Recommended: Waist gap at the back',
+    brands:     "Recommended: Levi's, Wrangler",
+    brandSizes: activeBrand ? `Recommended: 32 or M` : 'Recommended: 32 or M',
+  };
+
   const displayQuestion = useMemo(() => {
     if (stepKey === 'brandSizes' && activeBrand) return `What size did you buy in ${activeBrand}?`;
     return currentQuestion?.question || '';
@@ -663,7 +675,7 @@ export default function VoiceQuiz({ onBack }) {
                 setTypedInput(event.target.value);
                 setErrorMsg('');
               }}
-              placeholder={activeBrand ? `Type your ${activeBrand} size` : 'Type your answer'}
+              placeholder={PLACEHOLDERS[stepKey] ?? 'Recommended: type your answer'}
               inputMode={stepKey === 'weight' || stepKey === 'waist' || stepKey === 'hip' || stepKey === 'brandSizes' ? 'numeric' : 'text'}
             />
           </form>
